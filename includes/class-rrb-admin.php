@@ -90,6 +90,7 @@ class RRB_Admin {
 
         echo '<div class="wrap rrb-admin">';
         echo '<h1>ساخت رفرنس‌ها</h1>';
+        echo '<div class="rrb-notice-area" aria-live="polite"></div>';
 
         echo '<div class="rrb-controls">';
         echo '<div class="rrb-bulk">';
@@ -123,9 +124,11 @@ class RRB_Admin {
 
             echo '<tr data-product-id="' . esc_attr($product->get_id()) . '">';
             echo '<td>';
-            echo '<strong>' . esc_html($product->get_name()) . '</strong><br>';
-            echo '<a href="' . esc_url(get_permalink($product->get_id())) . '" target="_blank">نمایش</a> | ';
-            echo '<a href="' . esc_url(get_edit_post_link($product->get_id())) . '">ویرایش</a>';
+            echo '<a class="rrb-product-link" href="' . esc_url(get_permalink($product->get_id())) . '" target="_blank">' . esc_html($product->get_name()) . '</a><br>';
+            echo '<span class="rrb-product-actions">';
+            echo '<a href="' . esc_url(get_edit_post_link($product->get_id())) . '">ویرایش</a> | ';
+            echo '<a href="' . esc_url(get_permalink($product->get_id())) . '" target="_blank">نمایش</a>';
+            echo '</span>';
             echo '</td>';
             echo '<td><input type="text" class="rrb-url-input" value="' . esc_attr($url) . '" placeholder="https://behranfilter.ir/product/..." /></td>';
             echo '<td><span class="rrb-status-badge rrb-status-' . esc_attr($status) . '">' . esc_html(self::status_label($status)) . '</span></td>';
@@ -233,14 +236,7 @@ class RRB_Admin {
         }
 
         update_post_meta($product_id, '_rakam_ref_last_source_url', $url);
-        RRB_Queue::schedule_runner();
-        if ($run_now) {
-            if (class_exists('ActionScheduler')) {
-                as_enqueue_async_action(RRB_Queue::ACTION_HOOK, array(), 'rrb');
-            } else {
-                wp_schedule_single_event(time() + 5, RRB_Queue::ACTION_HOOK);
-            }
-        }
+        self::schedule_queue_run($run_now);
 
         wp_send_json_success(array('item_id' => $item_id));
     }
@@ -269,7 +265,7 @@ class RRB_Admin {
                 'dry_run' => (int) get_option('rrb_dry_run', 0),
             ));
         }
-        RRB_Queue::schedule_runner();
+        self::schedule_queue_run();
         wp_send_json_success();
     }
 
@@ -296,8 +292,22 @@ class RRB_Admin {
                 continue;
             }
             update_post_meta($product_id, '_rakam_ref_last_source_url', $url);
+            $item = RRB_DB::get_item_by_product($product_id);
+            $data = array(
+                'product_id' => $product_id,
+                'behran_url' => $url,
+                'status' => 'queued',
+                'force_refresh' => 0,
+                'dry_run' => (int) get_option('rrb_dry_run', 0),
+            );
+            if ($item) {
+                RRB_DB::update_item($item->id, $data);
+            } else {
+                RRB_DB::insert_item($data);
+            }
             $applied[] = array('product_id' => $product_id, 'url' => $url);
         }
+        self::schedule_queue_run();
         wp_send_json_success(array('applied' => $applied));
     }
 
@@ -308,6 +318,7 @@ class RRB_Admin {
             RRB_Queue::pause_queue();
         } elseif ($action === 'resume' || $action === 'start') {
             RRB_Queue::resume_queue();
+            self::schedule_queue_run(true);
         }
         wp_send_json_success();
     }
@@ -396,5 +407,16 @@ class RRB_Admin {
         global $wpdb;
         $table = RRB_DB::table_name();
         return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
+    }
+
+    private static function schedule_queue_run($run_now = false) {
+        RRB_Queue::schedule_runner();
+        if ($run_now) {
+            if (class_exists('ActionScheduler')) {
+                as_enqueue_async_action(RRB_Queue::ACTION_HOOK, array(), 'rrb');
+            } else {
+                wp_schedule_single_event(time() + 5, RRB_Queue::ACTION_HOOK);
+            }
+        }
     }
 }
