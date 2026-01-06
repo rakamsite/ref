@@ -6,6 +6,17 @@ jQuery(function ($) {
     }, data));
   }
 
+  function showNotice(message, type) {
+    var noticeArea = $('.rrb-notice-area');
+    if (!noticeArea.length) {
+      return;
+    }
+    noticeArea
+      .removeClass('rrb-notice-success rrb-notice-error')
+      .addClass(type === 'error' ? 'rrb-notice-error' : 'rrb-notice-success')
+      .text(message);
+  }
+
   function collectProductIds() {
     return $('.rrb-table tbody tr').map(function () {
       return $(this).data('product-id');
@@ -80,25 +91,47 @@ jQuery(function ($) {
       bulk: $('#rrb-bulk-input').val()
     }).done(function (response) {
       if (!response.success) {
-        alert(response.data);
+        showNotice(response.data || 'خطا در ثبت اطلاعات.', 'error');
         return;
       }
       response.data.applied.forEach(function (item) {
         var row = $('.rrb-table tbody tr[data-product-id="' + item.product_id + '"]');
         row.find('.rrb-url-input').val(item.url);
       });
+      showNotice('ورودی‌های گروهی اعمال و صف‌بندی شدند.', 'success');
     });
   });
 
   $('#rrb-start-queue').on('click', function () {
-    request('rrb_toggle_queue', { queue_action: 'start' });
+    request('rrb_toggle_queue', { queue_action: 'start' }).done(function (response) {
+      if (!response.success) {
+        showNotice(response.data || 'خطا در شروع صف.', 'error');
+        return;
+      }
+      $('.rrb-status').text('وضعیت صف: فعال');
+      showNotice('پردازش صف شروع شد.', 'success');
+    });
   });
 
   $('#rrb-pause-queue').on('click', function () {
-    request('rrb_toggle_queue', { queue_action: 'pause' });
+    request('rrb_toggle_queue', { queue_action: 'pause' }).done(function (response) {
+      if (!response.success) {
+        showNotice(response.data || 'خطا در توقف صف.', 'error');
+        return;
+      }
+      $('.rrb-status').text('وضعیت صف: متوقف');
+      showNotice('صف متوقف شد.', 'success');
+    });
   });
 
   $('#rrb-resume-queue').on('click', function () {
-    request('rrb_toggle_queue', { queue_action: 'resume' });
+    request('rrb_toggle_queue', { queue_action: 'resume' }).done(function (response) {
+      if (!response.success) {
+        showNotice(response.data || 'خطا در ادامه صف.', 'error');
+        return;
+      }
+      $('.rrb-status').text('وضعیت صف: فعال');
+      showNotice('صف دوباره فعال شد.', 'success');
+    });
   });
 });

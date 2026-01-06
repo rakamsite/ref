@@ -5,6 +5,38 @@
   margin-bottom: 20px;
 }
 
+.rrb-admin .rrb-notice-area {
+  margin: 10px 0 20px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  display: none;
+}
+
+.rrb-admin .rrb-notice-success {
+  display: block;
+  background: #e7f7ed;
+  border: 1px solid #b7e1c3;
+  color: #135c2c;
+}
+
+.rrb-admin .rrb-notice-error {
+  display: block;
+  background: #fde7e9;
+  border: 1px solid #f5b7bd;
+  color: #8a1f2d;
+}
+
+.rrb-product-link {
+  font-weight: 600;
+}
+
+.rrb-product-actions {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
 .rrb-admin .rrb-bulk {
   flex: 1 1 300px;
 }
