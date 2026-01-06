@@ -67,15 +67,22 @@ class RRB_Admin {
 
         $paged = max(1, (int) ($_GET['paged'] ?? 1));
         $per_page = 10;
-        $offset = ($paged - 1) * $per_page;
-        $query = new WC_Product_Query(array(
+        $query_args = array(
             'limit' => $per_page,
-            'offset' => $offset,
+            'page' => $paged,
             'status' => array('publish', 'draft', 'private'),
-        ));
-        $products = $query->get_products();
-        $total_products = $query->get_total();
-        $total_pages = max(1, (int) ceil($total_products / $per_page));
+            'paginate' => true,
+        );
+        $query_result = wc_get_products($query_args);
+        if (is_array($query_result) && isset($query_result['products'])) {
+            $products = $query_result['products'];
+            $total_products = (int) $query_result['total'];
+            $total_pages = max(1, (int) $query_result['max_num_pages']);
+        } else {
+            $products = is_array($query_result) ? $query_result : array();
+            $total_products = count($products);
+            $total_pages = 1;
+        }
 
         $paused = RRB_Queue::is_paused();
         $processed_count = self::count_processed();
