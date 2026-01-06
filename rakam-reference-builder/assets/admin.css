@@ -1,0 +1,33 @@
+.rrb-admin .rrb-controls {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.rrb-admin .rrb-bulk {
+  flex: 1 1 300px;
+}
+
+.rrb-admin .rrb-bulk textarea {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.rrb-status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #fff;
+}
+
+.rrb-status-pending { background: #999; }
+.rrb-status-queued { background: #0073aa; }
+.rrb-status-running { background: #f0ad4e; }
+.rrb-status-done { background: #46b450; }
+.rrb-status-error { background: #d63638; }
+
+.rrb-actions .button {
+  margin: 2px 0;
+}
