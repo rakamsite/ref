@@ -75,10 +75,10 @@ class RRB_Admin {
             'paginate' => true,
         );
         $query_result = wc_get_products($query_args);
-        if (is_array($query_result) && isset($query_result['products'])) {
-            $products = $query_result['products'];
-            $total_products = (int) $query_result['total'];
-            $total_pages = max(1, (int) $query_result['max_num_pages']);
+        if (is_object($query_result) && isset($query_result->products)) {
+            $products = is_array($query_result->products) ? $query_result->products : array();
+            $total_products = isset($query_result->total) ? (int) $query_result->total : count($products);
+            $total_pages = isset($query_result->max_num_pages) ? max(1, (int) $query_result->max_num_pages) : 1;
         } else {
             $products = is_array($query_result) ? $query_result : array();
             $total_products = count($products);
