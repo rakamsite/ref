@@ -18,10 +18,15 @@ class RRB_Tags {
             foreach ($entry['codes'] as $code) {
                 $name = self::apply_template($template, $code, $entry['brand_fa'], $entry['brand_en']);
                 $slug = self::generate_slug($code, $entry['brand_en']);
-                $term = get_term_by('slug', $slug, 'product_tag');
+                $term = self::find_existing_term($slug, $name);
                 if (!$term) {
                     $created = wp_insert_term($name, 'product_tag', array('slug' => $slug));
                     if (is_wp_error($created)) {
+                        $existing_term_id = (int) $created->get_error_data('term_exists');
+                        if ($existing_term_id > 0) {
+                            $term_ids[] = $existing_term_id;
+                            continue;
+                        }
                         return array('success' => false, 'message' => 'خطا در ساخت تگ.');
                     }
                     $term_id = (int) $created['term_id'];
@@ -49,6 +54,16 @@ class RRB_Tags {
         wp_remove_object_terms($product_id, $term_ids, 'product_tag');
         delete_post_meta($product_id, '_rakam_ref_last_created_term_ids');
         return array('success' => true);
+    }
+
+
+    private static function find_existing_term($slug, $name) {
+        $term = get_term_by('slug', $slug, 'product_tag');
+        if ($term) {
+            return $term;
+        }
+
+        return get_term_by('name', $name, 'product_tag');
     }
 
     private static function apply_template($template, $code, $brand_fa, $brand_en) {
