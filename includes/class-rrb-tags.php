@@ -5,6 +5,46 @@ if (!defined('ABSPATH')) {
 }
 
 class RRB_Tags {
+    public static function render_reference_links_for_product($product_id) {
+        $product_id = absint($product_id);
+        if (!$product_id) {
+            return '';
+        }
+
+        $results_json = get_post_meta($product_id, '_rakam_ref_last_result_json', true);
+        if (!$results_json) {
+            return '';
+        }
+
+        $results = json_decode($results_json, true);
+        if (empty($results) || !is_array($results)) {
+            return '';
+        }
+
+        $links = array();
+        foreach ($results as $entry) {
+            $brand_name = ucwords(strtolower((string) ($entry['brand_en'] ?? '')));
+            foreach (($entry['codes'] ?? array()) as $code) {
+                $code = strtoupper(trim((string) $code));
+                if ($code === '') {
+                    continue;
+                }
+
+                $label = $brand_name . ': ' . $code;
+                $slug = self::generate_slug($code, (string) ($entry['brand_en'] ?? ''));
+                $term = get_term_by('slug', $slug, 'product_tag');
+
+                if ($term) {
+                    $links[] = '<a href="' . esc_url(get_term_link($term)) . '">' . esc_html($label) . '</a>';
+                } else {
+                    $links[] = esc_html($label);
+                }
+            }
+        }
+
+        return implode('<br>', $links);
+    }
+
     public static function create_and_attach_tags($product_id, $result) {
         $product = wc_get_product($product_id);
         if (!$product) {
@@ -18,10 +58,15 @@ class RRB_Tags {
             foreach ($entry['codes'] as $code) {
                 $name = self::apply_template($template, $code, $entry['brand_fa'], $entry['brand_en']);
                 $slug = self::generate_slug($code, $entry['brand_en']);
-                $term = get_term_by('slug', $slug, 'product_tag');
+                $term = self::find_existing_term($slug, $name);
                 if (!$term) {
                     $created = wp_insert_term($name, 'product_tag', array('slug' => $slug));
                     if (is_wp_error($created)) {
+                        $existing_term_id = (int) $created->get_error_data('term_exists');
+                        if ($existing_term_id > 0) {
+                            $term_ids[] = $existing_term_id;
+                            continue;
+                        }
                         return array('success' => false, 'message' => 'خطا در ساخت تگ.');
                     }
                     $term_id = (int) $created['term_id'];
@@ -49,6 +94,16 @@ class RRB_Tags {
         wp_remove_object_terms($product_id, $term_ids, 'product_tag');
         delete_post_meta($product_id, '_rakam_ref_last_created_term_ids');
         return array('success' => true);
+    }
+
+
+    private static function find_existing_term($slug, $name) {
+        $term = get_term_by('slug', $slug, 'product_tag');
+        if ($term) {
+            return $term;
+        }
+
+        return get_term_by('name', $name, 'product_tag');
     }
 
     private static function apply_template($template, $code, $brand_fa, $brand_en) {

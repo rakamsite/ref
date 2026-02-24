@@ -37,6 +37,28 @@ function rrb_init_plugin() {
     RRB_Admin::init();
 }
 add_action('plugins_loaded', 'rrb_init_plugin');
+add_shortcode('rrb_reference_links', 'rrb_reference_links_shortcode');
+
+function rrb_reference_links_shortcode($atts = array()) {
+    $atts = shortcode_atts(
+        array(
+            'product_id' => 0,
+        ),
+        $atts,
+        'rrb_reference_links'
+    );
+
+    $product_id = absint($atts['product_id']);
+    if (!$product_id) {
+        $product_id = get_the_ID();
+    }
+
+    if (!$product_id || !class_exists('RRB_Tags')) {
+        return '';
+    }
+
+    return RRB_Tags::render_reference_links_for_product($product_id);
+}
 
 register_activation_hook(__FILE__, array('RRB_DB', 'activate'));
 register_deactivation_hook(__FILE__, array('RRB_Queue', 'deactivate'));
