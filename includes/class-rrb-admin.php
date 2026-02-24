@@ -57,7 +57,7 @@ class RRB_Admin {
         register_setting('rrb_settings', 'rrb_cache_enabled', array('type' => 'boolean', 'default' => 1));
         register_setting('rrb_settings', 'rrb_cache_ttl_days', array('type' => 'integer', 'default' => 30));
         register_setting('rrb_settings', 'rrb_dry_run', array('type' => 'boolean', 'default' => 0));
-        register_setting('rrb_settings', 'rrb_tag_template', array('type' => 'string', 'default' => 'فیلتر هواکش {CODE} {BRAND_FA} {BRAND_EN}'));
+        register_setting('rrb_settings', 'rrb_tag_template', array('type' => 'string', 'default' => 'فیلتر {CODE} {BRAND_FA} {BRAND_EN}'));
     }
 
     public static function render_reference_page() {
@@ -107,14 +107,14 @@ class RRB_Admin {
 
         echo '<table class="widefat fixed striped rrb-table">';
         echo '<thead><tr>';
-        echo '<th>شناسه</th><th>محصول</th><th>SKU</th><th>لینک بهران</th><th>وضعیت</th><th>نتیجه</th><th>خطا</th>';
+        echo '<th>شناسه</th><th>محصول</th><th>SKU</th><th>متن رفرنس</th><th>وضعیت</th><th>نتیجه</th><th>خطا</th>';
         echo '</tr></thead>';
         echo '<tbody>';
 
         foreach ($products as $product) {
             $item = RRB_DB::get_item_by_product($product->get_id());
             $status = $item ? $item->status : 'pending';
-            $url = $item ? $item->behran_url : get_post_meta($product->get_id(), '_rakam_ref_last_source_url', true);
+            $source_text = $item ? $item->behran_url : get_post_meta($product->get_id(), '_rakam_ref_last_source_text', true);
             $result_html = self::render_result_links($item);
             $error = $item ? $item->last_error_message : '';
 
@@ -124,7 +124,7 @@ class RRB_Admin {
             echo '<a class="rrb-product-link" href="' . esc_url(get_permalink($product->get_id())) . '" target="_blank">' . esc_html($product->get_name()) . '</a><br>';
             echo '</td>';
             echo '<td>' . esc_html($product->get_sku() ? $product->get_sku() : '—') . '</td>';
-            echo '<td><input type="text" class="rrb-url-input" value="' . esc_attr($url) . '" placeholder="https://behranfilter.ir/product/..." /></td>';
+            echo '<td><textarea class="rrb-source-input" rows="5" placeholder="متن رفرنس را اینجا پیست کنید...">' . esc_textarea($source_text) . '</textarea></td>';
             echo '<td><span class="rrb-status-badge rrb-status-' . esc_attr($status) . '">' . esc_html(self::status_label($status)) . '</span></td>';
             echo '<td class="rrb-result">' . $result_html . '</td>';
             echo '<td class="rrb-error">' . esc_html($error) . '</td>';
@@ -190,28 +190,28 @@ class RRB_Admin {
     public static function ajax_save_url() {
         self::verify_ajax();
         $product_id = absint($_POST['product_id'] ?? 0);
-        $url = esc_url_raw($_POST['url'] ?? '');
-        if (!$product_id || empty($url)) {
+        $source_text = sanitize_textarea_field($_POST['source_text'] ?? '');
+        if (!$product_id || empty($source_text)) {
             wp_send_json_error('اطلاعات ناقص است.');
         }
 
-        update_post_meta($product_id, '_rakam_ref_last_source_url', $url);
+        update_post_meta($product_id, '_rakam_ref_last_source_text', $source_text);
         wp_send_json_success();
     }
 
     public static function ajax_queue_item() {
         self::verify_ajax();
         $product_id = absint($_POST['product_id'] ?? 0);
-        $url = esc_url_raw($_POST['url'] ?? '');
+        $source_text = sanitize_textarea_field($_POST['source_text'] ?? '');
         $run_now = !empty($_POST['run_now']);
-        if (!$product_id || empty($url)) {
+        if (!$product_id || empty($source_text)) {
             wp_send_json_error('اطلاعات ناقص است.');
         }
 
         $item = RRB_DB::get_item_by_product($product_id);
         $data = array(
             'product_id' => $product_id,
-            'behran_url' => $url,
+            'behran_url' => $source_text,
             'status' => 'queued',
             'force_refresh' => 0,
             'dry_run' => (int) get_option('rrb_dry_run', 0),
@@ -223,7 +223,7 @@ class RRB_Admin {
             $item_id = RRB_DB::insert_item($data);
         }
 
-        update_post_meta($product_id, '_rakam_ref_last_source_url', $url);
+        update_post_meta($product_id, '_rakam_ref_last_source_text', $source_text);
         self::schedule_queue_run($run_now);
 
         wp_send_json_success(array('item_id' => $item_id));
@@ -232,14 +232,14 @@ class RRB_Admin {
     public static function ajax_force_refresh() {
         self::verify_ajax();
         $product_id = absint($_POST['product_id'] ?? 0);
-        $url = esc_url_raw($_POST['url'] ?? '');
-        if (!$product_id || empty($url)) {
+        $source_text = sanitize_textarea_field($_POST['source_text'] ?? '');
+        if (!$product_id || empty($source_text)) {
             wp_send_json_error('اطلاعات ناقص است.');
         }
         $item = RRB_DB::get_item_by_product($product_id);
         if ($item) {
             RRB_DB::update_item($item->id, array(
-                'behran_url' => $url,
+                'behran_url' => $source_text,
                 'status' => 'queued',
                 'force_refresh' => 1,
                 'dry_run' => (int) get_option('rrb_dry_run', 0),
@@ -247,7 +247,7 @@ class RRB_Admin {
         } else {
             RRB_DB::insert_item(array(
                 'product_id' => $product_id,
-                'behran_url' => $url,
+                'behran_url' => $source_text,
                 'status' => 'queued',
                 'force_refresh' => 1,
                 'dry_run' => (int) get_option('rrb_dry_run', 0),
@@ -275,15 +275,15 @@ class RRB_Admin {
                 continue;
             }
             $product_id = absint($parts[0]);
-            $url = esc_url_raw($parts[1]);
-            if (!$product_id || empty($url)) {
+            $source_text = sanitize_textarea_field($parts[1]);
+            if (!$product_id || empty($source_text)) {
                 continue;
             }
-            update_post_meta($product_id, '_rakam_ref_last_source_url', $url);
+            update_post_meta($product_id, '_rakam_ref_last_source_text', $source_text);
             $item = RRB_DB::get_item_by_product($product_id);
             $data = array(
                 'product_id' => $product_id,
-                'behran_url' => $url,
+                'behran_url' => $source_text,
                 'status' => 'queued',
                 'force_refresh' => 0,
                 'dry_run' => (int) get_option('rrb_dry_run', 0),
@@ -293,7 +293,7 @@ class RRB_Admin {
             } else {
                 RRB_DB::insert_item($data);
             }
-            $applied[] = array('product_id' => $product_id, 'url' => $url);
+            $applied[] = array('product_id' => $product_id, 'source_text' => $source_text);
         }
         self::schedule_queue_run();
         wp_send_json_success(array('applied' => $applied));
@@ -309,16 +309,16 @@ class RRB_Admin {
         $queued = 0;
         foreach ($items as $item) {
             $product_id = absint($item['product_id'] ?? 0);
-            $url = esc_url_raw($item['url'] ?? '');
-            if (!$product_id || empty($url)) {
+            $source_text = sanitize_textarea_field($item['source_text'] ?? '');
+            if (!$product_id || empty($source_text)) {
                 continue;
             }
 
-            update_post_meta($product_id, '_rakam_ref_last_source_url', $url);
+            update_post_meta($product_id, '_rakam_ref_last_source_text', $source_text);
             $existing_item = RRB_DB::get_item_by_product($product_id);
             $data = array(
                 'product_id' => $product_id,
-                'behran_url' => $url,
+                'behran_url' => $source_text,
                 'status' => 'queued',
                 'force_refresh' => 0,
                 'dry_run' => (int) get_option('rrb_dry_run', 0),
@@ -333,7 +333,7 @@ class RRB_Admin {
         }
 
         if ($queued === 0) {
-            wp_send_json_error('حداقل یک لینک معتبر وارد کنید.');
+            wp_send_json_error('حداقل یک متن معتبر وارد کنید.');
         }
 
         self::schedule_queue_run(true);

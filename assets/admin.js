@@ -42,29 +42,29 @@ jQuery(function ($) {
 
   setInterval(pollStatuses, 15000);
 
-  $('.rrb-table').on('change', '.rrb-url-input', function () {
+  $('.rrb-table').on('change', '.rrb-source-input', function () {
     var row = $(this).closest('tr');
     request('rrb_save_url', {
       product_id: row.data('product-id'),
-      url: $(this).val()
+      source_text: $(this).val()
     });
   });
 
   $('#rrb-start-queue').on('click', function () {
     var items = $('.rrb-table tbody tr').map(function () {
       var row = $(this);
-      var url = (row.find('.rrb-url-input').val() || '').trim();
-      if (!url) {
+      var sourceText = (row.find('.rrb-source-input').val() || '').trim();
+      if (!sourceText) {
         return null;
       }
       return {
         product_id: row.data('product-id'),
-        url: url
+        source_text: sourceText
       };
     }).get();
 
     if (!items.length) {
-      showNotice('حداقل یک لینک بهران وارد کنید.', 'error');
+      showNotice('حداقل یک متن رفرنس وارد کنید.', 'error');
       return;
     }
 
@@ -74,7 +74,7 @@ jQuery(function ($) {
         return;
       }
       $('.rrb-status').text('وضعیت صف: فعال');
-      showNotice(response.data.queued + ' محصول صف‌بندی شد و ساخت تگ‌ها شروع شد.', 'success');
+      showNotice(response.data.queued + ' محصول صف‌بندی شد و ساخت تگ‌ها از روی متن شروع شد.', 'success');
     });
   });
 
