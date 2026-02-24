@@ -50,6 +50,18 @@ jQuery(function ($) {
     });
   });
 
+  function updateRowFromResponse(productId, payload) {
+    var row = $('.rrb-table tbody tr[data-product-id="' + productId + '"]');
+    if (!row.length) {
+      return;
+    }
+    row.find('.rrb-status-badge').text(payload.status_label)
+      .removeClass('rrb-status-pending rrb-status-queued rrb-status-running rrb-status-done rrb-status-error')
+      .addClass('rrb-status-' + payload.status);
+    row.find('.rrb-error').text(payload.error || '');
+    row.find('.rrb-result').html(payload.result_html || '');
+  }
+
   $('#rrb-start-queue').on('click', function () {
     var items = $('.rrb-table tbody tr').map(function () {
       var row = $(this);
@@ -65,6 +77,23 @@ jQuery(function ($) {
 
     if (!items.length) {
       showNotice('حداقل یک متن رفرنس وارد کنید.', 'error');
+      return;
+    }
+
+    if (items.length === 1) {
+      request('rrb_queue_item', {
+        product_id: items[0].product_id,
+        source_text: items[0].source_text,
+        run_now: 1
+      }).done(function (response) {
+        if (!response.success) {
+          showNotice(response.data || 'خطا در پردازش فوری.', 'error');
+          return;
+        }
+        updateRowFromResponse(items[0].product_id, response.data);
+        showNotice('رفرنس همین حالا ساخته شد.', 'success');
+        pollStatuses();
+      });
       return;
     }
 

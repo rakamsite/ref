@@ -94,6 +94,63 @@ class RRB_Queue {
         self::release_lock();
     }
 
+    public static function process_item_immediately($item_id) {
+        if (self::is_paused()) {
+            return array(
+                'success' => false,
+                'message' => 'صف متوقف است. ابتدا صف را فعال کنید.',
+            );
+        }
+
+        if (!self::acquire_lock()) {
+            return array(
+                'success' => false,
+                'message' => 'یک پردازش دیگر در حال اجراست. چند لحظه بعد دوباره تلاش کنید.',
+            );
+        }
+
+        $item = RRB_DB::get_item($item_id);
+        if (!$item) {
+            self::release_lock();
+            return array(
+                'success' => false,
+                'message' => 'آیتم صف پیدا نشد.',
+            );
+        }
+
+        RRB_DB::update_item($item->id, array(
+            'status' => 'running',
+            'last_run_at' => current_time('mysql'),
+        ));
+
+        $item = RRB_DB::get_item($item_id);
+        $result = self::handle_item($item);
+
+        if ($result['status'] === 'done') {
+            RRB_DB::update_item($item->id, array(
+                'status' => 'done',
+                'last_error_message' => null,
+                'result_json' => wp_json_encode($result['result']),
+                'created_term_ids_json' => wp_json_encode($result['created_term_ids']),
+                'attempts' => $item->attempts + 1,
+            ));
+        } else {
+            RRB_DB::update_item($item->id, array(
+                'status' => $result['status'],
+                'last_error_message' => $result['error_message'],
+                'attempts' => $item->attempts + 1,
+            ));
+        }
+
+        self::release_lock();
+
+        return array(
+            'success' => $result['status'] === 'done',
+            'status' => $result['status'],
+            'message' => $result['status'] === 'done' ? '' : $result['error_message'],
+        );
+    }
+
     private static function handle_item($item) {
         $dry_run = (bool) $item->dry_run;
         $force_refresh = (bool) $item->force_refresh;
