@@ -50,66 +50,31 @@ jQuery(function ($) {
     });
   });
 
-  $('.rrb-table').on('click', '.rrb-queue', function () {
-    var row = $(this).closest('tr');
-    request('rrb_queue_item', {
-      product_id: row.data('product-id'),
-      url: row.find('.rrb-url-input').val()
-    });
-  });
-
-  $('.rrb-table').on('click', '.rrb-run', function () {
-    var row = $(this).closest('tr');
-    request('rrb_queue_item', {
-      product_id: row.data('product-id'),
-      url: row.find('.rrb-url-input').val(),
-      run_now: 1
-    });
-  });
-
-  $('.rrb-table').on('click', '.rrb-force-refresh', function () {
-    var row = $(this).closest('tr');
-    request('rrb_force_refresh', {
-      product_id: row.data('product-id'),
-      url: row.find('.rrb-url-input').val()
-    });
-  });
-
-  $('.rrb-table').on('click', '.rrb-undo', function () {
-    var row = $(this).closest('tr');
-    request('rrb_undo', {
-      product_id: row.data('product-id')
-    }).done(function (response) {
-      if (!response.success) {
-        alert(response.data);
-      }
-    });
-  });
-
-  $('#rrb-bulk-apply').on('click', function () {
-    request('rrb_bulk_apply', {
-      bulk: $('#rrb-bulk-input').val()
-    }).done(function (response) {
-      if (!response.success) {
-        showNotice(response.data || 'خطا در ثبت اطلاعات.', 'error');
-        return;
-      }
-      response.data.applied.forEach(function (item) {
-        var row = $('.rrb-table tbody tr[data-product-id="' + item.product_id + '"]');
-        row.find('.rrb-url-input').val(item.url);
-      });
-      showNotice('ورودی‌های گروهی اعمال و صف‌بندی شدند.', 'success');
-    });
-  });
-
   $('#rrb-start-queue').on('click', function () {
-    request('rrb_toggle_queue', { queue_action: 'start' }).done(function (response) {
+    var items = $('.rrb-table tbody tr').map(function () {
+      var row = $(this);
+      var url = (row.find('.rrb-url-input').val() || '').trim();
+      if (!url) {
+        return null;
+      }
+      return {
+        product_id: row.data('product-id'),
+        url: url
+      };
+    }).get();
+
+    if (!items.length) {
+      showNotice('حداقل یک لینک بهران وارد کنید.', 'error');
+      return;
+    }
+
+    request('rrb_queue_multiple', { items: items }).done(function (response) {
       if (!response.success) {
-        showNotice(response.data || 'خطا در شروع صف.', 'error');
+        showNotice(response.data || 'خطا در ثبت و شروع پردازش.', 'error');
         return;
       }
       $('.rrb-status').text('وضعیت صف: فعال');
-      showNotice('پردازش صف شروع شد.', 'success');
+      showNotice(response.data.queued + ' محصول صف‌بندی شد و ساخت تگ‌ها شروع شد.', 'success');
     });
   });
 

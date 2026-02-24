@@ -11,6 +11,7 @@ class RRB_Admin {
         add_action('wp_ajax_rrb_save_url', array(__CLASS__, 'ajax_save_url'));
         add_action('wp_ajax_rrb_queue_item', array(__CLASS__, 'ajax_queue_item'));
         add_action('wp_ajax_rrb_bulk_apply', array(__CLASS__, 'ajax_bulk_apply'));
+        add_action('wp_ajax_rrb_queue_multiple', array(__CLASS__, 'ajax_queue_multiple'));
         add_action('wp_ajax_rrb_toggle_queue', array(__CLASS__, 'ajax_toggle_queue'));
         add_action('wp_ajax_rrb_poll_status', array(__CLASS__, 'ajax_poll_status'));
         add_action('wp_ajax_rrb_force_refresh', array(__CLASS__, 'ajax_force_refresh'));
@@ -66,7 +67,7 @@ class RRB_Admin {
         }
 
         $paged = max(1, (int) ($_GET['paged'] ?? 1));
-        $per_page = 10;
+        $per_page = 20;
         $query_args = array(
             'limit' => $per_page,
             'page' => $paged,
@@ -93,13 +94,8 @@ class RRB_Admin {
         echo '<div class="rrb-notice-area" aria-live="polite"></div>';
 
         echo '<div class="rrb-controls">';
-        echo '<div class="rrb-bulk">';
-        echo '<label for="rrb-bulk-input">ورودی گروهی</label>';
-        echo '<textarea id="rrb-bulk-input" rows="5" placeholder="PRODUCT_ID|BEHRAN_URL"></textarea>';
-        echo '<button class="button button-primary" id="rrb-bulk-apply">اعمال</button>';
-        echo '</div>';
         echo '<div class="rrb-queue-buttons">';
-        echo '<button class="button button-primary" id="rrb-start-queue">شروع پردازش صف</button>';
+        echo '<button class="button button-primary" id="rrb-start-queue">شروع ساخت تگ‌ها</button>';
         echo '<button class="button" id="rrb-pause-queue">توقف</button>';
         echo '<button class="button" id="rrb-resume-queue">ادامه</button>';
         echo '</div>';
@@ -111,7 +107,7 @@ class RRB_Admin {
 
         echo '<table class="widefat fixed striped rrb-table">';
         echo '<thead><tr>';
-        echo '<th>محصول</th><th>لینک بهران</th><th>وضعیت</th><th>نتیجه</th><th>خطا</th><th>عملیات</th>';
+        echo '<th>شناسه</th><th>محصول</th><th>SKU</th><th>لینک بهران</th><th>وضعیت</th><th>نتیجه</th><th>خطا</th>';
         echo '</tr></thead>';
         echo '<tbody>';
 
@@ -123,23 +119,15 @@ class RRB_Admin {
             $error = $item ? $item->last_error_message : '';
 
             echo '<tr data-product-id="' . esc_attr($product->get_id()) . '">';
+            echo '<td>' . esc_html($product->get_id()) . '</td>';
             echo '<td>';
             echo '<a class="rrb-product-link" href="' . esc_url(get_permalink($product->get_id())) . '" target="_blank">' . esc_html($product->get_name()) . '</a><br>';
-            echo '<span class="rrb-product-actions">';
-            echo '<a href="' . esc_url(get_edit_post_link($product->get_id())) . '">ویرایش</a> | ';
-            echo '<a href="' . esc_url(get_permalink($product->get_id())) . '" target="_blank">نمایش</a>';
-            echo '</span>';
             echo '</td>';
+            echo '<td>' . esc_html($product->get_sku() ? $product->get_sku() : '—') . '</td>';
             echo '<td><input type="text" class="rrb-url-input" value="' . esc_attr($url) . '" placeholder="https://behranfilter.ir/product/..." /></td>';
             echo '<td><span class="rrb-status-badge rrb-status-' . esc_attr($status) . '">' . esc_html(self::status_label($status)) . '</span></td>';
             echo '<td class="rrb-result">' . $result_html . '</td>';
             echo '<td class="rrb-error">' . esc_html($error) . '</td>';
-            echo '<td class="rrb-actions">';
-            echo '<button class="button rrb-queue">صف‌بندی</button>';
-            echo '<button class="button rrb-run">اجرا</button>';
-            echo '<button class="button rrb-force-refresh">Force Refresh</button>';
-            echo '<button class="button rrb-undo">Undo</button>';
-            echo '</td>';
             echo '</tr>';
         }
 
@@ -309,6 +297,47 @@ class RRB_Admin {
         }
         self::schedule_queue_run();
         wp_send_json_success(array('applied' => $applied));
+    }
+
+    public static function ajax_queue_multiple() {
+        self::verify_ajax();
+        $items = $_POST['items'] ?? array();
+        if (!is_array($items) || empty($items)) {
+            wp_send_json_error('لیست محصولات خالی است.');
+        }
+
+        $queued = 0;
+        foreach ($items as $item) {
+            $product_id = absint($item['product_id'] ?? 0);
+            $url = esc_url_raw($item['url'] ?? '');
+            if (!$product_id || empty($url)) {
+                continue;
+            }
+
+            update_post_meta($product_id, '_rakam_ref_last_source_url', $url);
+            $existing_item = RRB_DB::get_item_by_product($product_id);
+            $data = array(
+                'product_id' => $product_id,
+                'behran_url' => $url,
+                'status' => 'queued',
+                'force_refresh' => 0,
+                'dry_run' => (int) get_option('rrb_dry_run', 0),
+            );
+            if ($existing_item) {
+                RRB_DB::update_item($existing_item->id, $data);
+            } else {
+                RRB_DB::insert_item($data);
+            }
+
+            $queued++;
+        }
+
+        if ($queued === 0) {
+            wp_send_json_error('حداقل یک لینک معتبر وارد کنید.');
+        }
+
+        self::schedule_queue_run(true);
+        wp_send_json_success(array('queued' => $queued));
     }
 
     public static function ajax_toggle_queue() {
