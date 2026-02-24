@@ -34,15 +34,14 @@ class RRB_Parser {
             }
         }
 
-        $response = wp_remote_get($url, array(
-            'timeout' => 20,
-            'headers' => array(
-                'User-Agent' => 'RakamReferenceBuilder/1.0; ' . home_url(),
-            ),
-        ));
+        $response = self::request_page($url);
 
         if (is_wp_error($response)) {
-            return array('status' => 'retry', 'error_message' => 'خطا در دریافت صفحه.');
+            $message = $response->get_error_message();
+            if (!$message) {
+                $message = 'خطا در دریافت صفحه.';
+            }
+            return array('status' => 'retry', 'error_message' => $message);
         }
 
         $code = wp_remote_retrieve_response_code($response);
@@ -73,6 +72,28 @@ class RRB_Parser {
         }
 
         return array('status' => 'error', 'error_message' => 'خطای نامشخص در دریافت صفحه.');
+    }
+
+    private static function request_page($url) {
+        $primary_args = array(
+            'timeout' => 30,
+            'redirection' => 5,
+            'headers' => array(
+                'User-Agent' => 'RakamReferenceBuilder/1.0; ' . home_url(),
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language' => 'fa-IR,fa;q=0.9,en-US;q=0.8,en;q=0.7',
+            ),
+        );
+
+        $response = wp_safe_remote_get($url, $primary_args);
+        if (!is_wp_error($response)) {
+            return $response;
+        }
+
+        $fallback_args = $primary_args;
+        $fallback_args['headers']['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+        $fallback_args['sslverify'] = false;
+        return wp_safe_remote_get($url, $fallback_args);
     }
 
     public static function parse_html($html) {
