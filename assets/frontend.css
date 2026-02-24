@@ -1,15 +1,19 @@
 .rrb-reference-links {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 8px;
-    align-items: center;
+    align-items: stretch;
+    width: 100%;
 }
 
 .rrb-reference-tag {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    padding: 6px 12px;
-    border-radius: 999px;
+    justify-content: space-between;
+    width: 100%;
+    direction: rtl;
+    padding: 10px 12px;
+    border-radius: 10px;
     border: 1px solid #d5dcef;
     background: linear-gradient(135deg, #ffffff 0%, #f4f7ff 100%);
     color: #1d2a57;
@@ -20,6 +24,24 @@
     transition: all 0.2s ease;
 }
 
+.rrb-reference-tag__name {
+    text-align: right;
+}
+
+.rrb-reference-tag__code {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-align: left;
+    direction: ltr;
+    font-weight: 700;
+}
+
+.rrb-reference-tag__icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
 a.rrb-reference-tag:hover,
 a.rrb-reference-tag:focus {
     background: linear-gradient(135deg, #1e4bd8 0%, #275ef5 100%);
@@ -27,8 +49,4 @@ a.rrb-reference-tag:focus {
     border-color: #1e4bd8;
     box-shadow: 0 6px 16px rgba(30, 75, 216, 0.25);
     transform: translateY(-1px);
-}
-
-.rrb-reference-tag.is-static {
-    opacity: 0.9;
 }
