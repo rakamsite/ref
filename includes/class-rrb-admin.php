@@ -436,7 +436,8 @@ class RRB_Admin {
         $links = array();
         foreach ($results as $entry) {
             foreach ($entry['codes'] as $code) {
-                $tag_name = $code . ' ' . $entry['brand_fa'];
+                $brand_name = ucwords(strtolower((string) ($entry['brand_en'] ?? '')));
+                $tag_name = $brand_name . ': ' . $code;
                 $slug = 'ref-airfilter-' . sanitize_title($code) . '-' . sanitize_title($entry['brand_en']);
                 $term = get_term_by('slug', $slug, 'product_tag');
                 if ($term) {

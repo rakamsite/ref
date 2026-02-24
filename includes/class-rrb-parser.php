@@ -361,18 +361,30 @@ class RRB_Parser {
         ));
 
         if (isset($mapping[$normalized_label])) {
+            $mapped = $mapping[$normalized_label];
+            $mapped['brand_en'] = self::format_english_brand_name($mapped['brand_en'] ?? '');
+
             return array_merge(
                 array('brand_label' => $brand_label),
-                $mapping[$normalized_label]
+                $mapped
             );
         }
 
         return array(
             'brand_label' => $brand_label,
             'brand_fa' => $brand_label,
-            'brand_en' => sanitize_title($brand_label),
+            'brand_en' => self::format_english_brand_name(sanitize_title($brand_label)),
             'allowed' => false,
         );
+    }
+
+    private static function format_english_brand_name($brand_name) {
+        $normalized_name = trim(str_replace('-', ' ', (string) $brand_name));
+        if ($normalized_name === '') {
+            return '';
+        }
+
+        return ucwords(strtolower($normalized_name));
     }
 
     private static function parse_with_regex($html) {
