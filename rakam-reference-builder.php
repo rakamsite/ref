@@ -57,6 +57,13 @@ function rrb_reference_links_shortcode($atts = array()) {
         return '';
     }
 
+    wp_enqueue_style(
+        'rrb-reference-links',
+        RRB_PLUGIN_URL . 'assets/frontend.css',
+        array(),
+        filemtime(RRB_PLUGIN_DIR . 'assets/frontend.css')
+    );
+
     return RRB_Tags::render_reference_links_for_product($product_id);
 }
 
