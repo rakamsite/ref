@@ -5,6 +5,46 @@ if (!defined('ABSPATH')) {
 }
 
 class RRB_Tags {
+    public static function render_reference_links_for_product($product_id) {
+        $product_id = absint($product_id);
+        if (!$product_id) {
+            return '';
+        }
+
+        $results_json = get_post_meta($product_id, '_rakam_ref_last_result_json', true);
+        if (!$results_json) {
+            return '';
+        }
+
+        $results = json_decode($results_json, true);
+        if (empty($results) || !is_array($results)) {
+            return '';
+        }
+
+        $links = array();
+        foreach ($results as $entry) {
+            $brand_name = ucwords(strtolower((string) ($entry['brand_en'] ?? '')));
+            foreach (($entry['codes'] ?? array()) as $code) {
+                $code = strtoupper(trim((string) $code));
+                if ($code === '') {
+                    continue;
+                }
+
+                $label = $brand_name . ': ' . $code;
+                $slug = self::generate_slug($code, (string) ($entry['brand_en'] ?? ''));
+                $term = get_term_by('slug', $slug, 'product_tag');
+
+                if ($term) {
+                    $links[] = '<a href="' . esc_url(get_term_link($term)) . '">' . esc_html($label) . '</a>';
+                } else {
+                    $links[] = esc_html($label);
+                }
+            }
+        }
+
+        return implode('<br>', $links);
+    }
+
     public static function create_and_attach_tags($product_id, $result) {
         $product = wc_get_product($product_id);
         if (!$product) {
