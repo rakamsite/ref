@@ -35,14 +35,18 @@ class RRB_Tags {
                 $term = get_term_by('slug', $slug, 'product_tag');
 
                 if ($term) {
-                    $links[] = '<a href="' . esc_url(get_term_link($term)) . '">' . esc_html($label) . '</a>';
+                    $links[] = '<a class="rrb-reference-tag" href="' . esc_url(get_term_link($term)) . '">' . esc_html($label) . '</a>';
                 } else {
-                    $links[] = esc_html($label);
+                    $links[] = '<span class="rrb-reference-tag is-static">' . esc_html($label) . '</span>';
                 }
             }
         }
 
-        return implode('<br>', $links);
+        if (empty($links)) {
+            return '';
+        }
+
+        return '<div class="rrb-reference-links">' . implode('', $links) . '</div>';
     }
 
     public static function create_and_attach_tags($product_id, $result) {
@@ -116,12 +120,11 @@ class RRB_Tags {
     }
 
     private static function generate_slug($code, $brand_en) {
-        $code_part = sanitize_title($code);
-        $brand_part = sanitize_title($brand_en);
-        $slug = 'ref-airfilter-' . $code_part;
-        if ($brand_part) {
-            $slug .= '-' . $brand_part;
+        $slug = sanitize_title(trim($brand_en . ' ' . $code));
+        if ($slug !== '') {
+            return $slug;
         }
-        return $slug;
+
+        return sanitize_title($code);
     }
 }
