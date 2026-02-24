@@ -68,3 +68,15 @@
   width: 100%;
   min-height: 90px;
 }
+
+.rrb-admin .rrb-search-form {
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rrb-admin .rrb-search-form input[type="search"] {
+  min-width: 260px;
+}

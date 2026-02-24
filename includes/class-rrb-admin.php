@@ -67,6 +67,7 @@ class RRB_Admin {
         }
 
         $paged = max(1, (int) ($_GET['paged'] ?? 1));
+        $search_query = sanitize_text_field($_GET['rrb_search'] ?? '');
         $per_page = 20;
         $query_args = array(
             'limit' => $per_page,
@@ -74,6 +75,10 @@ class RRB_Admin {
             'status' => array('publish', 'draft', 'private'),
             'paginate' => true,
         );
+        if (!empty($search_query)) {
+            $query_args['search'] = '*' . $search_query . '*';
+            $query_args['sku'] = $search_query;
+        }
         $query_result = wc_get_products($query_args);
         if (is_object($query_result) && isset($query_result->products)) {
             $products = is_array($query_result->products) ? $query_result->products : array();
@@ -99,6 +104,16 @@ class RRB_Admin {
         echo '<button class="button" id="rrb-pause-queue">توقف</button>';
         echo '<button class="button" id="rrb-resume-queue">ادامه</button>';
         echo '</div>';
+
+        echo '<form method="get" class="rrb-search-form">';
+        echo '<input type="hidden" name="page" value="rrb-reference-builder">';
+        echo '<label for="rrb-search"><strong>جستجوی محصول:</strong></label> ';
+        echo '<input type="search" id="rrb-search" name="rrb_search" value="' . esc_attr($search_query) . '" placeholder="نام یا SKU محصول"> ';
+        echo '<button type="submit" class="button">جستجو</button> ';
+        if (!empty($search_query)) {
+            echo '<a href="' . esc_url(admin_url('admin.php?page=rrb-reference-builder')) . '" class="button">پاک‌سازی</a>';
+        }
+        echo '</form>';
         echo '<div class="rrb-progress">';
         echo '<strong>پیشرفت:</strong> <span id="rrb-progress-count">' . esc_html($processed_count) . '</span> / ' . esc_html($queued_count) . ' پردازش شده';
         echo '</div>';
@@ -224,9 +239,25 @@ class RRB_Admin {
         }
 
         update_post_meta($product_id, '_rakam_ref_last_source_text', $source_text);
-        self::schedule_queue_run($run_now);
+        if ($run_now) {
+            $result = RRB_Queue::process_item_immediately($item_id);
+            if (!$result['success']) {
+                wp_send_json_error($result['message']);
+            }
+            $updated_item = RRB_DB::get_item($item_id);
+            wp_send_json_success(array(
+                'item_id' => $item_id,
+                'processed_now' => true,
+                'status' => $updated_item ? $updated_item->status : 'done',
+                'status_label' => $updated_item ? self::status_label($updated_item->status) : self::status_label('done'),
+                'result_html' => self::render_result_links($updated_item),
+                'error' => $updated_item ? $updated_item->last_error_message : '',
+            ));
+        }
 
-        wp_send_json_success(array('item_id' => $item_id));
+        self::schedule_queue_run(false);
+
+        wp_send_json_success(array('item_id' => $item_id, 'processed_now' => false));
     }
 
     public static function ajax_force_refresh() {
