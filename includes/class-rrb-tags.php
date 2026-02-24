@@ -21,24 +21,36 @@ class RRB_Tags {
             return '';
         }
 
+        $product_terms = wp_get_post_terms($product_id, 'product_tag');
+        $terms_by_slug = array();
+        if (!is_wp_error($product_terms)) {
+            foreach ($product_terms as $term) {
+                $terms_by_slug[$term->slug] = $term;
+            }
+        }
+
         $links = array();
         foreach ($results as $entry) {
-            $brand_name = ucwords(strtolower((string) ($entry['brand_en'] ?? '')));
+            $brand_name = trim((string) ($entry['brand_fa'] ?? ''));
+            if ($brand_name === '') {
+                $brand_name = ucwords(strtolower((string) ($entry['brand_en'] ?? '')));
+            }
+
             foreach (($entry['codes'] ?? array()) as $code) {
                 $code = strtoupper(trim((string) $code));
                 if ($code === '') {
                     continue;
                 }
 
-                $label = $brand_name . ': ' . $code;
                 $slug = self::generate_slug($code, (string) ($entry['brand_en'] ?? ''));
-                $term = get_term_by('slug', $slug, 'product_tag');
+                $term = $terms_by_slug[$slug] ?? get_term_by('slug', $slug, 'product_tag');
+                $link = $term ? get_term_link($term) : get_term_link($slug, 'product_tag');
 
-                if ($term) {
-                    $links[] = '<a class="rrb-reference-tag" href="' . esc_url(get_term_link($term)) . '">' . esc_html($label) . '</a>';
-                } else {
-                    $links[] = '<span class="rrb-reference-tag is-static">' . esc_html($label) . '</span>';
+                if (is_wp_error($link)) {
+                    continue;
                 }
+
+                $links[] = '<a class="rrb-reference-tag" href="' . esc_url($link) . '"><span class="rrb-reference-tag__name">' . esc_html($brand_name) . '</span><span class="rrb-reference-tag__code"><span class="rrb-reference-tag__icon" aria-hidden="true">🔖</span>' . esc_html($code) . '</span></a>';
             }
         }
 
