@@ -90,10 +90,76 @@ class RRB_Parser {
             return $response;
         }
 
+        if (self::is_external_http_blocked($response)) {
+            $curl_response = self::request_with_curl($url, $primary_args);
+            if (!is_wp_error($curl_response)) {
+                return $curl_response;
+            }
+        }
+
         $fallback_args = $primary_args;
         $fallback_args['headers']['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
         $fallback_args['sslverify'] = false;
         return wp_safe_remote_get($url, $fallback_args);
+    }
+
+    private static function is_external_http_blocked($error) {
+        if (!is_wp_error($error)) {
+            return false;
+        }
+
+        $code = $error->get_error_code();
+        $message = $error->get_error_message();
+
+        if ($code === 'http_request_not_executed') {
+            return true;
+        }
+
+        return strpos($message, 'HTTP request') !== false && strpos($message, 'blocked') !== false;
+    }
+
+    private static function request_with_curl($url, $args = array()) {
+        if (!function_exists('curl_init')) {
+            return new WP_Error('rrb_curl_unavailable', 'cURL در سرور فعال نیست.');
+        }
+
+        $timeout = isset($args['timeout']) ? (int) $args['timeout'] : 30;
+        $headers = isset($args['headers']) ? (array) $args['headers'] : array();
+
+        $formatted_headers = array();
+        foreach ($headers as $name => $value) {
+            $formatted_headers[] = $name . ': ' . $value;
+        }
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $formatted_headers);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+        $body = curl_exec($ch);
+        $status_code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
+        curl_close($ch);
+
+        if ($body === false) {
+            return new WP_Error('rrb_curl_failed', $curl_error ? $curl_error : 'خطا در درخواست cURL.');
+        }
+
+        return array(
+            'response' => array(
+                'code' => $status_code,
+                'message' => '',
+            ),
+            'body' => $body,
+            'headers' => array(),
+            'cookies' => array(),
+            'filename' => null,
+        );
     }
 
     public static function parse_html($html) {
