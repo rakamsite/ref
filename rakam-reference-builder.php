@@ -53,6 +53,17 @@ function rrb_reference_links_shortcode($atts = array()) {
         $product_id = get_the_ID();
     }
 
+    if (!$product_id && function_exists('get_queried_object_id')) {
+        $product_id = absint(get_queried_object_id());
+    }
+
+    if (!$product_id && function_exists('wc_get_product')) {
+        global $product;
+        if ($product instanceof WC_Product) {
+            $product_id = $product->get_id();
+        }
+    }
+
     if (!$product_id || !class_exists('RRB_Tags')) {
         return '';
     }
