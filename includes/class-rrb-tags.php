@@ -13,12 +13,12 @@ class RRB_Tags {
 
         $results_json = get_post_meta($product_id, '_rakam_ref_last_result_json', true);
         if (!$results_json) {
-            return '';
+            return self::render_links_from_terms($product_id);
         }
 
         $results = json_decode($results_json, true);
         if (empty($results) || !is_array($results)) {
-            return '';
+            return self::render_links_from_terms($product_id);
         }
 
         $product_terms = wp_get_post_terms($product_id, 'product_tag');
@@ -52,6 +52,29 @@ class RRB_Tags {
 
                 $links[] = '<a class="rrb-reference-tag" href="' . esc_url($link) . '"><span class="rrb-reference-tag__name">' . esc_html($brand_name) . '</span><span class="rrb-reference-tag__code"><span class="rrb-reference-tag__icon" aria-hidden="true">🔖</span>' . esc_html($code) . '</span></a>';
             }
+        }
+
+        if (empty($links)) {
+            return self::render_links_from_terms($product_id);
+        }
+
+        return '<div class="rrb-reference-links">' . implode('', $links) . '</div>';
+    }
+
+    private static function render_links_from_terms($product_id) {
+        $product_terms = wp_get_post_terms($product_id, 'product_tag');
+        if (empty($product_terms) || is_wp_error($product_terms)) {
+            return '';
+        }
+
+        $links = array();
+        foreach ($product_terms as $term) {
+            $link = get_term_link($term);
+            if (is_wp_error($link)) {
+                continue;
+            }
+
+            $links[] = '<a class="rrb-reference-tag" href="' . esc_url($link) . '"><span class="rrb-reference-tag__name">' . esc_html($term->name) . '</span></a>';
         }
 
         if (empty($links)) {
