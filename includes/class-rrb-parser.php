@@ -5,18 +5,60 @@ if (!defined('ABSPATH')) {
 }
 
 class RRB_Parser {
-    public static function validate_url($url) {
-        $parts = wp_parse_url($url);
-        if (empty($parts['host']) || empty($parts['path'])) {
-            return array('valid' => false, 'message' => 'آدرس معتبر نیست.');
+    public static function validate_source_text($text) {
+        if (!is_string($text) || trim($text) === '') {
+            return array('valid' => false, 'message' => 'متن رفرنس خالی است.');
         }
-        if (substr($parts['host'], -strlen('behranfilter.ir')) !== 'behranfilter.ir') {
-            return array('valid' => false, 'message' => 'دامنه باید behranfilter.ir باشد.');
-        }
-        if (strpos($parts['path'], '/product/') === false) {
-            return array('valid' => false, 'message' => 'مسیر باید شامل /product/ باشد.');
-        }
+
         return array('valid' => true);
+    }
+
+    public static function parse_source_text($text) {
+        $normalized_text = str_replace("\r", '', wp_strip_all_tags((string) $text));
+        $lines = preg_split('/\n+/', $normalized_text);
+        $results = array();
+        $current_brand = null;
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $brand = self::normalize_brand($line);
+            if ($brand['allowed']) {
+                $current_brand = $brand;
+                continue;
+            }
+
+            if (!$current_brand) {
+                continue;
+            }
+
+            if (self::looks_like_brand_label($line)) {
+                $current_brand = null;
+                continue;
+            }
+
+            $codes = self::extract_codes($line);
+            if (empty($codes)) {
+                continue;
+            }
+
+            $results[] = array(
+                'brand_label' => $current_brand['brand_label'],
+                'brand_fa' => $current_brand['brand_fa'],
+                'brand_en' => $current_brand['brand_en'],
+                'codes' => $codes,
+            );
+        }
+
+        $results = self::normalize_results($results);
+        if (empty($results)) {
+            return array('status' => 'error', 'error_message' => 'هیچ برند مجاز یا کد معتبری در متن پیدا نشد.');
+        }
+
+        return array('status' => 'ok', 'result' => array_values($results));
     }
 
     public static function fetch_and_parse($url, $args = array()) {
@@ -257,6 +299,16 @@ class RRB_Parser {
         return $text;
     }
 
+
+    private static function looks_like_brand_label($line) {
+        if (preg_match('/[0-9]/u', $line)) {
+            return false;
+        }
+
+        $plain = preg_replace('/[^\p{L}\s]/u', '', $line);
+        return mb_strlen(trim($plain)) >= 2;
+    }
+
     private static function extract_codes($text) {
         $text = wp_strip_all_tags($text);
         preg_match_all('/[A-Za-z0-9\-\/]{4,}/u', $text, $matches);
@@ -292,17 +344,34 @@ class RRB_Parser {
     }
 
     private static function normalize_brand($brand_label) {
+        $normalized_label = trim(mb_strtolower((string) $brand_label));
+
         $mapping = apply_filters('rrb_brand_mapping', array(
-            'MANN' => array('brand_fa' => 'مان', 'brand_en' => 'mann'),
+            'دونالدسون' => array('brand_fa' => 'دونالدسون', 'brand_en' => 'donaldson', 'allowed' => true),
+            'donaldson' => array('brand_fa' => 'دونالدسون', 'brand_en' => 'donaldson', 'allowed' => true),
+            'ساکورا' => array('brand_fa' => 'ساکورا', 'brand_en' => 'sakura', 'allowed' => true),
+            'sakura' => array('brand_fa' => 'ساکورا', 'brand_en' => 'sakura', 'allowed' => true),
+            'مان' => array('brand_fa' => 'مان', 'brand_en' => 'mann', 'allowed' => true),
+            'maan' => array('brand_fa' => 'مان', 'brand_en' => 'mann', 'allowed' => true),
+            'mann' => array('brand_fa' => 'مان', 'brand_en' => 'mann', 'allowed' => true),
+            'فلیدگارد' => array('brand_fa' => 'فلیدگارد', 'brand_en' => 'fleetguard', 'allowed' => true),
+            'fleetguard' => array('brand_fa' => 'فلیدگارد', 'brand_en' => 'fleetguard', 'allowed' => true),
+            'هنگست' => array('brand_fa' => 'هنگست', 'brand_en' => 'hengst', 'allowed' => true),
+            'hengst' => array('brand_fa' => 'هنگست', 'brand_en' => 'hengst', 'allowed' => true),
         ));
 
-        if (isset($mapping[$brand_label])) {
-            return $mapping[$brand_label];
+        if (isset($mapping[$normalized_label])) {
+            return array_merge(
+                array('brand_label' => $brand_label),
+                $mapping[$normalized_label]
+            );
         }
 
         return array(
+            'brand_label' => $brand_label,
             'brand_fa' => $brand_label,
             'brand_en' => sanitize_title($brand_label),
+            'allowed' => false,
         );
     }
 

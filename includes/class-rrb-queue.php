@@ -99,7 +99,7 @@ class RRB_Queue {
         $force_refresh = (bool) $item->force_refresh;
         $retry_limit = (int) get_option('rrb_retry_count', 2);
 
-        $validation = RRB_Parser::validate_url($item->behran_url);
+        $validation = RRB_Parser::validate_source_text($item->behran_url);
         if (!$validation['valid']) {
             return array(
                 'status' => 'error',
@@ -107,9 +107,7 @@ class RRB_Queue {
             );
         }
 
-        $response = RRB_Parser::fetch_and_parse($item->behran_url, array(
-            'force_refresh' => $force_refresh,
-        ));
+        $response = RRB_Parser::parse_source_text($item->behran_url);
 
         if ($response['status'] === 'retry') {
             if ($item->attempts + 1 <= $retry_limit) {
@@ -149,7 +147,7 @@ class RRB_Queue {
             update_post_meta($item->product_id, '_rakam_ref_last_result_json', wp_json_encode($response['result']));
         }
 
-        update_post_meta($item->product_id, '_rakam_ref_last_source_url', esc_url_raw($item->behran_url));
+        update_post_meta($item->product_id, '_rakam_ref_last_source_text', sanitize_textarea_field($item->behran_url));
 
         return array(
             'status' => 'done',

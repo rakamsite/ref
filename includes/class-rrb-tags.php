@@ -11,7 +11,7 @@ class RRB_Tags {
             return array('success' => false, 'message' => 'محصول یافت نشد.');
         }
 
-        $template = get_option('rrb_tag_template', 'فیلتر هواکش {CODE} {BRAND_FA} {BRAND_EN}');
+        $template = get_option('rrb_tag_template', 'فیلتر {CODE} {BRAND_FA} {BRAND_EN}');
         $term_ids = array();
 
         foreach ($result as $entry) {

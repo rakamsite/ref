@@ -63,3 +63,8 @@
 .rrb-actions .button {
   margin: 2px 0;
 }
+
+.rrb-source-input {
+  width: 100%;
+  min-height: 90px;
+}
