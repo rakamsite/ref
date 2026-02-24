@@ -23,26 +23,30 @@ class RRB_Tags {
 
         $links = array();
         foreach ($results as $entry) {
-            $brand_name = ucwords(strtolower((string) ($entry['brand_en'] ?? '')));
+            $brand_fa = trim((string) ($entry['brand_fa'] ?? ''));
+            $brand_en = trim((string) ($entry['brand_en'] ?? ''));
+            $brand_name = $brand_fa !== '' ? $brand_fa : ucwords(strtolower($brand_en));
+
             foreach (($entry['codes'] ?? array()) as $code) {
                 $code = strtoupper(trim((string) $code));
                 if ($code === '') {
                     continue;
                 }
 
-                $label = $brand_name . ': ' . $code;
-                $slug = self::generate_slug($code, (string) ($entry['brand_en'] ?? ''));
-                $term = get_term_by('slug', $slug, 'product_tag');
-
-                if ($term) {
-                    $links[] = '<a href="' . esc_url(get_term_link($term)) . '">' . esc_html($label) . '</a>';
-                } else {
-                    $links[] = esc_html($label);
+                $term = self::ensure_term_for_reference($code, $brand_fa, $brand_en);
+                if (!$term) {
+                    continue;
                 }
+
+                $links[] = '<a class="rrb-reference-tag" href="' . esc_url(get_term_link($term)) . '"><span class="rrb-reference-brand">' . esc_html($brand_name) . '</span><span class="rrb-reference-code">' . esc_html($code) . '</span></a>';
             }
         }
 
-        return implode('<br>', $links);
+        if (empty($links)) {
+            return '';
+        }
+
+        return '<div class="rrb-reference-links">' . implode('', $links) . '</div>';
     }
 
     public static function create_and_attach_tags($product_id, $result) {
@@ -97,6 +101,57 @@ class RRB_Tags {
     }
 
 
+
+
+    private static function ensure_term_for_reference($code, $brand_fa, $brand_en) {
+        $term = self::resolve_term_for_reference($code, $brand_fa, $brand_en);
+        if ($term) {
+            return $term;
+        }
+
+        $slug = self::generate_slug($code, $brand_en);
+        $template = get_option('rrb_tag_template', 'فیلتر {CODE} {BRAND_FA} {BRAND_EN}');
+        $name = self::apply_template($template, $code, $brand_fa, $brand_en);
+
+        $created = wp_insert_term($name, 'product_tag', array('slug' => $slug));
+        if (is_wp_error($created)) {
+            $existing_term_id = (int) $created->get_error_data('term_exists');
+            if ($existing_term_id > 0) {
+                return get_term($existing_term_id, 'product_tag');
+            }
+
+            return null;
+        }
+
+        return get_term((int) $created['term_id'], 'product_tag');
+    }
+
+    private static function resolve_term_for_reference($code, $brand_fa, $brand_en) {
+        $slug = self::generate_slug($code, $brand_en);
+        $template = get_option('rrb_tag_template', 'فیلتر {CODE} {BRAND_FA} {BRAND_EN}');
+
+        $possible_names = array(
+            self::apply_template($template, $code, $brand_fa, $brand_en),
+            self::apply_template($template, $code, '', $brand_en),
+            trim($brand_fa . ' ' . $code),
+            trim($brand_en . ' ' . $code),
+        );
+
+        foreach ($possible_names as $name) {
+            $name = trim((string) $name);
+            if ($name === '') {
+                continue;
+            }
+
+            $term = self::find_existing_term($slug, $name);
+            if ($term) {
+                return $term;
+            }
+        }
+
+        return get_term_by('slug', $slug, 'product_tag');
+    }
+
     private static function find_existing_term($slug, $name) {
         $term = get_term_by('slug', $slug, 'product_tag');
         if ($term) {
@@ -116,12 +171,11 @@ class RRB_Tags {
     }
 
     private static function generate_slug($code, $brand_en) {
-        $code_part = sanitize_title($code);
-        $brand_part = sanitize_title($brand_en);
-        $slug = 'ref-airfilter-' . $code_part;
-        if ($brand_part) {
-            $slug .= '-' . $brand_part;
+        $slug = sanitize_title(trim($brand_en . ' ' . $code));
+        if ($slug !== '') {
+            return $slug;
         }
-        return $slug;
+
+        return sanitize_title($code);
     }
 }
