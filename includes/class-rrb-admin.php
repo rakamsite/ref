@@ -252,6 +252,7 @@ class RRB_Admin {
                 'status_label' => $updated_item ? self::status_label($updated_item->status) : self::status_label('done'),
                 'result_html' => self::render_result_links($updated_item),
                 'error' => $updated_item ? $updated_item->last_error_message : '',
+                'source_text' => $updated_item ? (string) $updated_item->behran_url : '',
             ));
         }
 
@@ -395,6 +396,7 @@ class RRB_Admin {
                     'status_label' => self::status_label($item->status),
                     'error' => $item->last_error_message,
                     'result_html' => self::render_result_links($item),
+                    'source_text' => (string) $item->behran_url,
                 );
             }
         }
@@ -435,10 +437,27 @@ class RRB_Admin {
         }
         $links = array();
         foreach ($results as $entry) {
-            foreach ($entry['codes'] as $code) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $codes = $entry['codes'] ?? array();
+            if (is_string($codes)) {
+                $codes = preg_split('/[\s,|؛;]+/u', $codes);
+            }
+            if (!is_array($codes)) {
+                $codes = array();
+            }
+
+            foreach ($codes as $code) {
+                $code = strtoupper(trim((string) $code));
+                if ($code === '') {
+                    continue;
+                }
+
                 $brand_name = ucwords(strtolower((string) ($entry['brand_en'] ?? '')));
                 $tag_name = $brand_name . ': ' . $code;
-                $slug = 'ref-airfilter-' . sanitize_title($code) . '-' . sanitize_title($entry['brand_en']);
+                $slug = sanitize_title(trim((string) ($entry['brand_en'] ?? '') . ' ' . $code));
                 $term = get_term_by('slug', $slug, 'product_tag');
                 if ($term) {
                     $links[] = '<a href="' . esc_url(get_term_link($term)) . '" target="_blank">' . esc_html($tag_name) . '</a>';

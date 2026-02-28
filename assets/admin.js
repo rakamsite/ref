@@ -36,6 +36,9 @@ jQuery(function ($) {
             .addClass('rrb-status-' + payload.status);
           row.find('.rrb-error').text(payload.error || '');
           row.find('.rrb-result').html(payload.result_html || '');
+          if (typeof payload.source_text === 'string') {
+            row.find('.rrb-source-input').val(payload.source_text);
+          }
         });
       });
   }
@@ -60,6 +63,9 @@ jQuery(function ($) {
       .addClass('rrb-status-' + payload.status);
     row.find('.rrb-error').text(payload.error || '');
     row.find('.rrb-result').html(payload.result_html || '');
+    if (typeof payload.source_text === 'string') {
+      row.find('.rrb-source-input').val(payload.source_text);
+    }
   }
 
   $('#rrb-start-queue').on('click', function () {
