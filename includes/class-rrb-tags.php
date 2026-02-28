@@ -16,8 +16,8 @@ class RRB_Tags {
             return self::render_links_from_terms($product_id);
         }
 
-        $results = json_decode($results_json, true);
-        if (empty($results) || !is_array($results)) {
+        $results = self::normalize_results_payload(json_decode($results_json, true));
+        if (empty($results)) {
             return self::render_links_from_terms($product_id);
         }
 
@@ -36,7 +36,7 @@ class RRB_Tags {
                 $brand_name = ucwords(strtolower((string) ($entry['brand_en'] ?? '')));
             }
 
-            foreach (($entry['codes'] ?? array()) as $code) {
+            foreach ($entry['codes'] as $code) {
                 $code = strtoupper(trim((string) $code));
                 if ($code === '') {
                     continue;
@@ -135,6 +135,47 @@ class RRB_Tags {
         return array('success' => true);
     }
 
+
+    private static function normalize_results_payload($results) {
+        if (empty($results) || !is_array($results)) {
+            return array();
+        }
+
+        $normalized = array();
+        foreach ($results as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $codes = $entry['codes'] ?? array();
+            if (is_string($codes)) {
+                $codes = preg_split('/[\s,|؛;]+/u', $codes);
+            }
+
+            if (!is_array($codes)) {
+                $codes = array();
+            }
+
+            $clean_codes = array();
+            foreach ($codes as $code) {
+                $code = strtoupper(trim((string) $code));
+                if ($code === '') {
+                    continue;
+                }
+                $clean_codes[] = $code;
+            }
+
+            $clean_codes = array_values(array_unique($clean_codes));
+            if (empty($clean_codes)) {
+                continue;
+            }
+
+            $entry['codes'] = $clean_codes;
+            $normalized[] = $entry;
+        }
+
+        return $normalized;
+    }
 
     private static function find_existing_term($slug, $name) {
         $term = get_term_by('slug', $slug, 'product_tag');

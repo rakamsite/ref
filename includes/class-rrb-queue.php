@@ -78,6 +78,7 @@ class RRB_Queue {
         if ($result['status'] === 'done') {
             RRB_DB::update_item($item->id, array(
                 'status' => 'done',
+                'behran_url' => '',
                 'last_error_message' => null,
                 'result_json' => wp_json_encode($result['result']),
                 'created_term_ids_json' => wp_json_encode($result['created_term_ids']),
@@ -129,6 +130,7 @@ class RRB_Queue {
         if ($result['status'] === 'done') {
             RRB_DB::update_item($item->id, array(
                 'status' => 'done',
+                'behran_url' => '',
                 'last_error_message' => null,
                 'result_json' => wp_json_encode($result['result']),
                 'created_term_ids_json' => wp_json_encode($result['created_term_ids']),
@@ -204,7 +206,7 @@ class RRB_Queue {
             update_post_meta($item->product_id, '_rakam_ref_last_result_json', wp_json_encode($response['result']));
         }
 
-        update_post_meta($item->product_id, '_rakam_ref_last_source_text', sanitize_textarea_field($item->behran_url));
+        delete_post_meta($item->product_id, '_rakam_ref_last_source_text');
 
         return array(
             'status' => 'done',
